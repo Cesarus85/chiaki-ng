@@ -19,6 +19,7 @@ class QmlSettings : public QObject
     Q_PROPERTY(bool logSanitize READ logSanitize WRITE setLogSanitize NOTIFY logSanitizeChanged)
     Q_PROPERTY(bool vSyncEnabled READ vSyncEnabled WRITE setVSyncEnabled NOTIFY vSyncEnabledChanged)
     Q_PROPERTY(int rumbleHapticsIntensity READ rumbleHapticsIntensity WRITE setRumbleHapticsIntensity NOTIFY rumbleHapticsIntensityChanged)
+    Q_PROPERTY(int impulseTriggerIntensity READ impulseTriggerIntensity WRITE setImpulseTriggerIntensity NOTIFY impulseTriggerIntensityChanged)
 #ifdef CHIAKI_GUI_ENABLE_STEAMDECK_NATIVE
     Q_PROPERTY(bool steamDeckHaptics READ steamDeckHaptics WRITE setSteamDeckHaptics NOTIFY steamDeckHapticsChanged)
     Q_PROPERTY(bool verticalDeck READ verticalDeck WRITE setVerticalDeck NOTIFY verticalDeckChanged)
@@ -210,6 +211,9 @@ public:
 
     int rumbleHapticsIntensity() const;
     void setRumbleHapticsIntensity(int intensity);
+
+    int impulseTriggerIntensity() const;
+    void setImpulseTriggerIntensity(int intensity);
 
 #ifdef CHIAKI_GUI_ENABLE_STEAMDECK_NATIVE
     bool steamDeckHaptics() const;
@@ -622,6 +626,7 @@ signals:
     void logSanitizeChanged();
     void vSyncEnabledChanged();
     void rumbleHapticsIntensityChanged();
+    void impulseTriggerIntensityChanged();
     void buttonsByPositionChanged();
     void allowJoystickBackgroundEventsChanged();
     void startMicUnmutedChanged();

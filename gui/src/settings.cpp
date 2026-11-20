@@ -447,6 +447,17 @@ void Settings::SetRumbleHapticsIntensity(RumbleHapticsIntensity intensity)
 	settings.setValue("settings/rumble_haptics_intensity", intensities[intensity]);
 }
 
+RumbleHapticsIntensity Settings::GetImpulseTriggerIntensity() const
+{
+	auto s = settings.value("settings/impulse_trigger_intensity", intensities[intensity_default]).toString();
+	return intensities.key(s, intensity_default);
+}
+
+void Settings::SetImpulseTriggerIntensity(RumbleHapticsIntensity intensity)
+{
+	settings.setValue("settings/impulse_trigger_intensity", intensities[intensity]);
+}
+
 static const QMap<ChiakiVideoResolutionPreset, QString> resolutions = {
 	{ CHIAKI_VIDEO_RESOLUTION_PRESET_360p, "360p" },
 	{ CHIAKI_VIDEO_RESOLUTION_PRESET_540p, "540p" },

@@ -270,6 +270,10 @@ class Settings : public QObject
 		RumbleHapticsIntensity GetRumbleHapticsIntensity() const;
 		void SetRumbleHapticsIntensity(RumbleHapticsIntensity intensity);
 
+		// strength of adaptive trigger effects on controllers with trigger rumble (impulse triggers)
+		RumbleHapticsIntensity GetImpulseTriggerIntensity() const;
+		void SetImpulseTriggerIntensity(RumbleHapticsIntensity intensity);
+
 		bool GetShowStreamStats() const            { return settings.value("settings/show_stream_stats", false).toBool(); }
 		void SetShowStreamStats(bool enabled)      { settings.setValue("settings/show_stream_stats", enabled); }
 

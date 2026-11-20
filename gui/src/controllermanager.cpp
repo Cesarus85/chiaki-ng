@@ -5,6 +5,9 @@
 #include <QCoreApplication>
 #include <QByteArray>
 #include <QTimer>
+#include <QLoggingCategory>
+
+#include <algorithm>
 
 #ifdef CHIAKI_GUI_ENABLE_SDL_GAMECONTROLLER
 #include <SDL.h>
@@ -104,6 +107,14 @@ static QSet<QPair<uint16_t, uint16_t>> chiaki_dualsense_controller_ids({
 	QPair<uint16_t, uint16_t>(0x054c, 0x0ce6), // DualSense controller
 });
 
+Q_DECLARE_LOGGING_CATEGORY(chiakiGui);
+
+// how often trigger rumble is recalculated while an adaptive trigger effect is active
+#define IMPULSE_TRIGGER_UPDATE_MS 8
+// SDL rumble stops after its duration, so active rumble is resent before that
+#define IMPULSE_TRIGGER_RUMBLE_MS 100
+#define IMPULSE_TRIGGER_RESEND_MS 50
+
 static QSet<QPair<uint16_t, uint16_t>> chiaki_dualsense_edge_controller_ids({
 	// in format (vendor id, product id)
 	QPair<uint16_t, uint16_t>(0x054c, 0x0df2), // DualSense Edge controller
@@ -113,6 +124,7 @@ static QSet<QPair<uint16_t, uint16_t>> chiaki_handheld_controller_ids({
 	// in format (vendor id, product id)
 	QPair<uint16_t, uint16_t>(0x28de, 0x1205), // Steam Deck
 	QPair<uint16_t, uint16_t>(0x0b05, 0x1abe), // Rog Ally
+	QPair<uint16_t, uint16_t>(0x0b05, 0x1b4c), // Rog Ally X, ROG Xbox Ally X
 	QPair<uint16_t, uint16_t>(0x17ef, 0x6182), // Legion Go
 	QPair<uint16_t, uint16_t>(0x0db0, 0x1901), // MSI Claw
 });
@@ -406,6 +418,23 @@ Controller::Controller(int device_id, ControllerManager *manager)
 			is_steam_virtual = chiaki_steam_virtual_controller_ids.contains(guid_controller_id);
 			is_steam_virtual_unmasked = chiaki_steam_virtual_controller_ids.contains(controller_id);
 #endif
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+			has_rumble_triggers = SDL_GameControllerHasRumbleTriggers(controller);
+			{
+				auto yes_no = [](bool b) { return b ? QStringLiteral("yes") : QStringLiteral("no"); };
+				const QString vid_pid = QStringLiteral("%1:%2")
+					.arg(controller_id.first, 4, 16, QChar('0'))
+					.arg(controller_id.second, 4, 16, QChar('0'));
+				qCInfo(chiakiGui).noquote() << QStringLiteral("Controller opened: \"%1\" VID/PID %2, handheld: %3, DualSense: %4, rumble: %5, trigger rumble: %6, gyro: %7, accel: %8")
+					.arg(QString::fromUtf8(SDL_GameControllerName(controller)), vid_pid,
+						yes_no(is_handheld),
+						yes_no(is_dualsense || is_dualsense_edge),
+						yes_no(SDL_GameControllerHasRumble(controller)),
+						yes_no(has_rumble_triggers),
+						yes_no(SDL_GameControllerHasSensor(controller, SDL_SENSOR_GYRO)),
+						yes_no(SDL_GameControllerHasSensor(controller, SDL_SENSOR_ACCEL)));
+			}
+#endif
 			break;
 		}
 	}
@@ -421,6 +450,7 @@ Controller::~Controller()
 		// Clear trigger effects, SDL doesn't do it automatically
 		const uint8_t clear_effect[10] = { 0 };
 		this->SetTriggerEffects(0x05, clear_effect, 0x05, clear_effect);
+		StopImpulseTriggers();
 		this->SetRumble(0,0);
 		SDL_GameControllerClose(controller);
 	}
@@ -870,8 +900,13 @@ void Controller::ChangePlayerIndex(const uint8_t player_index)
 void Controller::SetTriggerEffects(uint8_t type_left, const uint8_t *data_left, uint8_t type_right, const uint8_t *data_right)
 {
 #ifdef CHIAKI_GUI_ENABLE_SDL_GAMECONTROLLER
-	if((!is_dualsense && !is_dualsense_edge) || !controller)
+	if(!controller)
 		return;
+	if(!is_dualsense && !is_dualsense_edge)
+	{
+		SetImpulseTriggerEffects(type_left, data_left, type_right, data_right);
+		return;
+	}
 	DS5EffectsState_t state;
 	SDL_zero(state);
 	state.rgucUnknown1[4] = manager->GetDualSenseIntensity();
@@ -884,6 +919,73 @@ void Controller::SetTriggerEffects(uint8_t type_left, const uint8_t *data_left, 
 	SDL_GameControllerSendEffect(controller, &state, sizeof(state));
 #endif
 }
+
+#ifdef CHIAKI_GUI_ENABLE_SDL_GAMECONTROLLER
+void Controller::SetImpulseTriggerEffects(uint8_t type_left, const uint8_t *data_left, uint8_t type_right, const uint8_t *data_right)
+{
+	if(!has_rumble_triggers)
+		return;
+	if(manager->GetImpulseTriggerScale() > 0.0f)
+	{
+		impulse_left.SetEffect(ImpulseTriggerEffectFromDualSense(type_left, data_left));
+		impulse_right.SetEffect(ImpulseTriggerEffectFromDualSense(type_right, data_right));
+	}
+	else
+	{
+		impulse_left.SetEffect(ImpulseTriggerEffect());
+		impulse_right.SetEffect(ImpulseTriggerEffect());
+	}
+	if(!impulse_timer)
+	{
+		impulse_timer = new QTimer(this);
+		impulse_timer->setTimerType(Qt::PreciseTimer);
+		connect(impulse_timer, &QTimer::timeout, this, &Controller::UpdateImpulseTriggers);
+	}
+	if(!impulse_timer->isActive())
+		impulse_timer->start(IMPULSE_TRIGGER_UPDATE_MS);
+	UpdateImpulseTriggers();
+}
+
+void Controller::UpdateImpulseTriggers()
+{
+	if(!controller)
+		return;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+	uint64_t now = SDL_GetTicks64();
+#else
+	uint64_t now = SDL_GetTicks();
+#endif
+	float scale = std::clamp(manager->GetImpulseTriggerScale(), 0.0f, 1.0f);
+	uint16_t left = (uint16_t)(std::clamp(impulse_left.Update(state.l2_state, now), 0.0f, 1.0f) * scale * 0xFFFF);
+	uint16_t right = (uint16_t)(std::clamp(impulse_right.Update(state.r2_state, now), 0.0f, 1.0f) * scale * 0xFFFF);
+	bool running = left || right;
+	if(left != impulse_sent_left || right != impulse_sent_right || (running && now - impulse_last_send >= IMPULSE_TRIGGER_RESEND_MS))
+	{
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+		SDL_GameControllerRumbleTriggers(controller, left, right, running ? IMPULSE_TRIGGER_RUMBLE_MS : 0);
+#endif
+		impulse_sent_left = left;
+		impulse_sent_right = right;
+		impulse_last_send = now;
+	}
+	if(!running && impulse_left.IsIdle(now) && impulse_right.IsIdle(now) && impulse_timer)
+		impulse_timer->stop();
+}
+
+void Controller::StopImpulseTriggers()
+{
+	if(impulse_timer)
+		impulse_timer->stop();
+	impulse_left.SetEffect(ImpulseTriggerEffect());
+	impulse_right.SetEffect(ImpulseTriggerEffect());
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+	if(controller && has_rumble_triggers && (impulse_sent_left || impulse_sent_right))
+		SDL_GameControllerRumbleTriggers(controller, 0, 0, 0);
+#endif
+	impulse_sent_left = 0;
+	impulse_sent_right = 0;
+}
+#endif
 
 void Controller::SetDualsenseMic(bool on)
 {

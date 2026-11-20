@@ -307,6 +307,7 @@ StreamSessionConnectInfo::StreamSessionConnectInfo(
 	this->enable_dualsense = true;
 	this->enable_idr_on_fec_failure = settings->GetIDROnFECFailureEnabled();
 	this->rumble_haptics_intensity = settings->GetRumbleHapticsIntensity();
+	this->impulse_trigger_intensity = settings->GetImpulseTriggerIntensity();
 	this->buttons_by_pos = settings->GetButtonsByPosition();
 	this->start_mic_unmuted = settings->GetStartMicUnmuted();
 	this->port_guessing_enabled = settings->GetPortGuessingEnabled();
@@ -358,6 +359,20 @@ static void SessionSetsuCb(SetsuEvent *event, void *user);
 static void SessionSDeckCb(SDeckEvent *event, void *user);
 #endif
 static void FfmpegFrameCb(ChiakiFfmpegDecoder *decoder, void *user);
+
+static float ImpulseTriggerScale(RumbleHapticsIntensity intensity)
+{
+	switch(intensity)
+	{
+		case RumbleHapticsIntensity::Off: return 0.0f;
+		case RumbleHapticsIntensity::VeryWeak: return 0.25f;
+		case RumbleHapticsIntensity::Weak: return 0.5f;
+		case RumbleHapticsIntensity::Normal: return 0.75f;
+		case RumbleHapticsIntensity::Strong: return 0.9f;
+		case RumbleHapticsIntensity::VeryStrong: return 1.0f;
+	}
+	return 0.75f;
+}
 
 StreamSession::StreamSession(const StreamSessionConnectInfo &connect_info, QObject *parent)
 	: QObject(parent),
@@ -666,6 +681,7 @@ StreamSession::StreamSession(const StreamSessionConnectInfo &connect_info, QObje
 	}
 #endif
 	key_map = connect_info.key_map;
+	ControllerManager::GetInstance()->SetImpulseTriggerScale(ImpulseTriggerScale(connect_info.impulse_trigger_intensity));
 	if (connect_info.enable_dualsense)
 	{
 		InitHaptics();

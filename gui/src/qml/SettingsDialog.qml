@@ -2803,6 +2803,27 @@ DialogView {
                             Layout.alignment: Qt.AlignHCenter
                             Label {
                                 Layout.alignment: Qt.AlignRight
+                                text: qsTr("Impulse Triggers:")
+                            }
+
+                            C.ComboBox {
+                                id: impulseTriggers
+                                Layout.preferredWidth: 400
+                                model: [qsTr("Off"), qsTr("Very Weak"), qsTr("Weak"), qsTr("Normal"), qsTr("Strong"), qsTr("Very Strong")]
+                                currentIndex: Chiaki.settings.impulseTriggerIntensity
+                                onActivated: (index) => Chiaki.settings.impulseTriggerIntensity = index;
+                            }
+
+                            Label {
+                                Layout.alignment: Qt.AlignRight
+                                text: qsTr("(Normal, adaptive triggers on Xbox-style controllers)")
+                            }
+                        }
+                        RowLayout {
+                            spacing: 10
+                            Layout.alignment: Qt.AlignHCenter
+                            Label {
+                                Layout.alignment: Qt.AlignRight
                                 text: qsTr("True Haptics Intensity:")
                             }
 

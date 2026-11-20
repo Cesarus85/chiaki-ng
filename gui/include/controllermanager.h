@@ -4,6 +4,7 @@
 #define CHIAKI_CONTROLLERMANAGER_H
 
 #include <chiaki/controller.h>
+#include <impulsetriggers.h>
 
 #include <QObject>
 #include <QSet>
@@ -37,6 +38,7 @@ class ControllerManager : public QObject
 		bool is_app_active;
 		bool moved;
 		uint8_t dualsense_intensity;
+		float impulse_trigger_scale = 0.75f;
 
 		void ControllerClosed(Controller *controller);
 		void CheckMoved();
@@ -58,6 +60,9 @@ class ControllerManager : public QObject
 		void SetIsAppActive(bool active);
 		void SetDualSenseIntensity(uint8_t intensity) { dualsense_intensity = intensity; };
 		uint8_t GetDualSenseIntensity() { return dualsense_intensity; };
+		// 0 disables translating adaptive trigger effects to trigger rumble
+		void SetImpulseTriggerScale(float scale) { impulse_trigger_scale = scale; };
+		float GetImpulseTriggerScale() { return impulse_trigger_scale; };
 		void creatingControllerMapping(bool creating_controller_mapping);
 		QSet<int> GetAvailableControllers();
 		Controller *OpenController(int device_id);
@@ -86,6 +91,9 @@ class Controller : public QObject
 		bool HandleSensorEvent(SDL_ControllerSensorEvent event);
 		bool HandleTouchpadEvent(SDL_ControllerTouchpadEvent event);
 #endif
+		void SetImpulseTriggerEffects(uint8_t type_left, const uint8_t *data_left, uint8_t type_right, const uint8_t *data_right);
+		void UpdateImpulseTriggers();
+		void StopImpulseTriggers();
 #endif
 
 		int ref;
@@ -110,6 +118,13 @@ class Controller : public QObject
 		ChiakiAccelNewZero accel_zero;
 		ChiakiAccelNewZero real_accel;
 		uint32_t last_motion_timestamp;
+		bool has_rumble_triggers = false;
+		ImpulseTriggerState impulse_left;
+		ImpulseTriggerState impulse_right;
+		QTimer *impulse_timer = nullptr;
+		uint16_t impulse_sent_left = 0;
+		uint16_t impulse_sent_right = 0;
+		uint64_t impulse_last_send = 0;
 #endif
 
 	public:

@@ -255,6 +255,17 @@ void QmlSettings::setRumbleHapticsIntensity(int intensity)
     emit rumbleHapticsIntensityChanged();
 }
 
+int QmlSettings::impulseTriggerIntensity() const
+{
+    return static_cast<int>(settings->GetImpulseTriggerIntensity());
+}
+
+void QmlSettings::setImpulseTriggerIntensity(int intensity)
+{
+    settings->SetImpulseTriggerIntensity(static_cast<RumbleHapticsIntensity>(intensity));
+    emit impulseTriggerIntensityChanged();
+}
+
 bool QmlSettings::iDROnFECFailureEnabled() const
 {
     return settings->GetIDROnFECFailureEnabled();
@@ -1894,6 +1905,7 @@ void QmlSettings::refreshAllKeys()
     emit vSyncEnabledChanged();
     emit hapticOverrideChanged();
     emit rumbleHapticsIntensityChanged();
+    emit impulseTriggerIntensityChanged();
     emit buttonsByPositionChanged();
     emit allowJoystickBackgroundEventsChanged();
     emit startMicUnmutedChanged();
