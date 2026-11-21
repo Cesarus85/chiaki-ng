@@ -111,6 +111,8 @@ class Controller : public QObject
 		bool has_led;
 		bool micbutton_push;
 		uint16_t firmware_version;
+		// capabilities summary, written to the session log when a stream starts
+		QString capabilities;
 
 #ifdef CHIAKI_GUI_ENABLE_SDL_GAMECONTROLLER
 		QMap<QPair<Sint64, Sint64>, uint8_t> touch_ids;
@@ -140,6 +142,7 @@ class Controller : public QObject
 #endif
 		QString GetName();
 		QString GetVIDPIDString();
+		QString GetCapabilities() { return capabilities; }
 		QString GetType();
 		bool IsPS();
 		QString GetGUIDString();

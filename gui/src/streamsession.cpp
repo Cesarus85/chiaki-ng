@@ -1207,6 +1207,8 @@ void StreamSession::UpdateGamepads()
 				continue;
 			}
 			CHIAKI_LOGI(log.GetChiakiLog(), "Controller %d opened: \"%s\"", controller_id, controller->GetName().toLocal8Bit().constData());
+			if(!controller->GetCapabilities().isEmpty())
+				CHIAKI_LOGI(log.GetChiakiLog(), "Controller %d capabilities: %s", controller_id, controller->GetCapabilities().toUtf8().constData());
 			connect(controller, &Controller::StateChanged, this, &StreamSession::SendFeedbackState);
 			connect(controller, &Controller::MicButtonPush, this, &StreamSession::ToggleMute);
 			controllers[controller_id] = controller;
@@ -2571,6 +2573,11 @@ void StreamSession::Event(ChiakiEvent *event)
 			uint8_t data_right[10];
 			memcpy(data_right, event->trigger_effects.right, 10);
 			uint8_t type_right = event->trigger_effects.type_right;
+			if(!trigger_effects_logged && (type_left > 0x05 || type_right > 0x05 || type_left == 0x01 || type_left == 0x02 || type_right == 0x01 || type_right == 0x02))
+			{
+				trigger_effects_logged = true;
+				CHIAKI_LOGI(log.GetChiakiLog(), "First trigger effect from console: left mode 0x%02x, right mode 0x%02x", type_left, type_right);
+			}
 			QMetaObject::invokeMethod(this, [this, type_left, data_left, type_right, data_right]() {
 				for(auto controller : controllers)
 					controller->SetTriggerEffects(type_left, data_left, type_right, data_right);

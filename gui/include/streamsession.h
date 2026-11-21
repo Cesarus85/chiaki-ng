@@ -191,6 +191,7 @@ class StreamSession : public QObject
 		float rumble_multiplier;
 		int ps5_rumble_intensity;
 		int ps5_trigger_intensity;
+		bool trigger_effects_logged = false;
 		uint8_t led_color[3];
 		uint8_t player_index;
 		QHash<int, Controller *> controllers;

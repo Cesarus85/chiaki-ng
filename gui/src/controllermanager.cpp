@@ -425,7 +425,7 @@ Controller::Controller(int device_id, ControllerManager *manager)
 				const QString vid_pid = QStringLiteral("%1:%2")
 					.arg(controller_id.first, 4, 16, QChar('0'))
 					.arg(controller_id.second, 4, 16, QChar('0'));
-				qCInfo(chiakiGui).noquote() << QStringLiteral("Controller opened: \"%1\" VID/PID %2, handheld: %3, DualSense: %4, rumble: %5, trigger rumble: %6, gyro: %7, accel: %8")
+				capabilities = QStringLiteral("\"%1\" VID/PID %2, handheld: %3, DualSense: %4, rumble: %5, trigger rumble: %6, gyro: %7, accel: %8")
 					.arg(QString::fromUtf8(SDL_GameControllerName(controller)), vid_pid,
 						yes_no(is_handheld),
 						yes_no(is_dualsense || is_dualsense_edge),
@@ -433,6 +433,7 @@ Controller::Controller(int device_id, ControllerManager *manager)
 						yes_no(has_rumble_triggers),
 						yes_no(SDL_GameControllerHasSensor(controller, SDL_SENSOR_GYRO)),
 						yes_no(SDL_GameControllerHasSensor(controller, SDL_SENSOR_ACCEL)));
+				qCInfo(chiakiGui).noquote() << "Controller opened:" << capabilities;
 			}
 #endif
 			break;
